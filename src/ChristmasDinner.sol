@@ -41,12 +41,13 @@ contract ChristmasDinner {
     uint256 public deadline; // q - where do we set the deadline?
     bool public deadlineSet = false;
     bool private locked = false;
-    mapping (address user => bool) participant;
-    mapping (address user => mapping (address token => uint256 balance )) balances;
-    mapping (address user => uint256 amount) etherBalance;
-    mapping (address token => bool ) whitelisted; //q - do we check if a token is whitelisted?
+    mapping (address user => bool) public participant; //Are these vars public or private or ???
+    mapping (address user => mapping (address token => uint256 balance )) public balances;
+    mapping (address user => uint256 amount) public etherBalance;
+    mapping (address token => bool ) public whitelisted; //q - do we check if a token is whitelisted?
 
 
+    // Why are we casting random address to an IERC20 why not just take in an IERC20?
     constructor (address _WBTC, address _WETH, address _USDC) {
         host = msg.sender;
         i_WBTC = IERC20(_WBTC);
@@ -256,4 +257,8 @@ contract ChristmasDinner {
         _to.transfer(refundValue);
         etherBalance[_to] = 0;
     }
+
+    function getUserBalance(address user, address token) external view returns (uint256) {
+        return balances[user][token];
+}
 }

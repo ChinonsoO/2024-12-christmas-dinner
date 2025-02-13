@@ -263,47 +263,46 @@ contract ChristmasDinnerTest is Test {
         vm.stopPrank();
     }
 
-    function test_reEnterAttack() public {
-        vm.warp(1 + 3 days);
+    // function test_reEnterAttack() public {
+    //     vm.warp(1 + 3 days);
 
-        vm.startPrank(user1);
-        cd.deposit(address(wbtc), 1e18);
-        vm.stopPrank();
+    //     vm.startPrank(user1);
+    //     cd.deposit(address(wbtc), 1e18);
+    //     vm.stopPrank();
 
-        vm.startPrank(user2);
-        cd.deposit(address(weth), 2e18);
-        vm.stopPrank();
+    //     vm.startPrank(user2);
+    //     cd.deposit(address(weth), 2e18);
+    //     vm.stopPrank();
 
-        vm.startPrank(user3);
-        vm.deal(user3, 5e18);
-        cd.deposit(address(wbtc), 2e18);
+    //     vm.startPrank(user3);
+    //     vm.deal(user3, 5e18);
+    //     cd.deposit(address(wbtc), 2e18);
 
-        address(cd).call{value: 5e18}("");
-        vm.stopPrank();
+    //     address(cd).call{value: 5e18}("");
+    //     vm.stopPrank();
     
-        assertEq(weth.balanceOf(address(cd)), 2e18);
-        assertEq(wbtc.balanceOf(address(cd)), 3e18);
+    //     assertEq(weth.balanceOf(address(cd)), 2e18);
+    //     assertEq(wbtc.balanceOf(address(cd)), 3e18);
 
 
-        reEnterAttacker attacker = new reEnterAttacker(cd, wbtc);
-        wbtc.mint(address(attacker), 1e18);
+    //     reEnterAttacker attacker = new reEnterAttacker(cd, wbtc);
+    //     wbtc.mint(address(attacker), 1e18);
 
-        console.log("WBTC balance of contract before attack: ", wbtc.balanceOf(address(cd)));
-        console.log("WBTC balance of attacker before attack: ", wbtc.balanceOf(address(attacker)));
-
-
-        attacker.attack();
+    //     console.log("WBTC balance of contract before attack: ", wbtc.balanceOf(address(cd)));
+    //     console.log("WBTC balance of attacker before attack: ", wbtc.balanceOf(address(attacker)));
 
 
-        console.log("WBTC balance of contract after attack: ", wbtc.balanceOf(address(cd)));
-        console.log("WBTC balance of attacker after attack: ", wbtc.balanceOf(address(attacker)));
+    //     attacker.attack();
+
+
+    //     console.log("WBTC balance of contract after attack: ", wbtc.balanceOf(address(cd)));
+    //     console.log("WBTC balance of attacker after attack: ", wbtc.balanceOf(address(attacker)));
 
      
-    }
+    // }
 }
 
-function test_UncheckedSentEth public {
-    vm.warp(1 + 3 days);
+function test_UncheckedSentEth()  {
 
     // vm.startPrank(user1);
     // cd.deposit(address(wbtc), 1e18);
@@ -323,16 +322,12 @@ function test_UncheckedSentEth public {
     // assertEq(weth.balanceOf(address(cd)), 2e18);
     // assertEq(wbtc.balanceOf(address(cd)), 3e18);
 
-    vm.makeAddr("BadUser");
+    // vm.makeAddr("BadUser");
+    // vm.startPrank("BadUser");
 
-    vm.startPrank("BadUser");
+    // cd.depost{value: 0.1e18}(wbtc, 0.5e18);
 
-    cd.depost{value: 0.5e18}(wbtc, 0.1e18);
-
-
-
-
-
+    // assertEq(wbtc.balanceOf(address(cd)), 0.1e )
 
 }
 
@@ -384,5 +379,3 @@ function test_UncheckedSentEth public {
 //             cd.refund();
 //         }
 //     }
-
-c

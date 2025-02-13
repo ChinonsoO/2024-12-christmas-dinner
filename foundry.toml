@@ -7,4 +7,13 @@ remappings = [
     '@openzeppelin/=lib/@openzeppelin-contracts/'
 ]
 
+[fuzz]
+runs = 10000
+seed = '0x2'
+
+[invariant]
+runs = 64
+depth = 32
+fail_on_revert = true
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
