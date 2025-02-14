@@ -44,7 +44,11 @@ contract Handler is Test {
         amount = bound(amount, 0, wbtc.balanceOf(user1));
         vm.startPrank(user1);
         wbtc.approve(address(cd), amount);
+        if (block.timestamp > cd.deadline()){
+            vm.expectRevert();
+        }
         cd.deposit(address(wbtc), amount);
+        
         vm.stopPrank();
     }
 
@@ -52,7 +56,11 @@ contract Handler is Test {
         amount = bound(amount, 0, weth.balanceOf(user1));
         vm.startPrank(user1);
         weth.approve(address(cd), amount);
+        if (block.timestamp > cd.deadline()){
+            vm.expectRevert();
+        }
         cd.deposit(address(weth), amount);
+       
         vm.stopPrank();
     }
     
@@ -60,6 +68,9 @@ contract Handler is Test {
         amount = bound(amount, 0, usdc.balanceOf(user1));
         vm.startPrank(user1);
         usdc.approve(address(cd), amount);
+        if (block.timestamp > cd.deadline()){
+            vm.expectRevert();
+        }
         cd.deposit(address(usdc), amount);
         vm.stopPrank();
     }
@@ -67,20 +78,48 @@ contract Handler is Test {
     function depositEth(uint256 amount) public {
         amount = bound(amount, 0, address(user1).balance);
         vm.startPrank(user1);
+        if (block.timestamp > cd.deadline()){
+                vm.expectRevert();
+        }
         address(cd).call{value: amount}("");
         vm.stopPrank();
     }
 
     function refundBalance() public {
-        vm.startPrank(user1);
-        cd.refund();
-        vm.stopPrank();
+            vm.startPrank(user1);
+
+            if (block.timestamp > cd.deadline()){
+                vm.expectRevert();
+            }
+            cd.refund();
+            vm.stopPrank();
     }
 
-    function changeHost() public {
-        vm.startPrank(deployer);
+    function warpPastDeadline(uint256 warpAmount) public {
+        // If your deadline is (deployedAt + X days),
+        // you can choose a warp offset that surpasses it.
+        warpAmount = bound(warpAmount, 1, 10); 
+        warpAmount = warpAmount * 1 days;
+        vm.warp(block.timestamp + warpAmount);
+    }
+
+    function changeHostToUser2() public {
+        uint256 depositAmount = 1e18;
+        require(weth.balanceOf(user2) >= depositAmount, "Insufficient WETH balance for user2");
+        
+        if (!cd.getParticipationStatus(user2)) {
+            // Make user2 sign up by depositing a small amount of WETH.
+            vm.startPrank(user2);
+            weth.approve(address(cd), depositAmount);
+            cd.deposit(address(weth), depositAmount);
+            vm.stopPrank();
+        }
+        
+        vm.startPrank(cd.getHost());
         cd.changeHost(user2);
         vm.stopPrank();
+
     }
+
     
 }

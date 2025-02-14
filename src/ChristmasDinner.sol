@@ -49,7 +49,10 @@ contract ChristmasDinner {
 
     // Why are we casting random address to an IERC20 why not just take in an IERC20?
     constructor (address _WBTC, address _WETH, address _USDC) {
+        //participation status of host is not set to true at constructor intialization?? Or when deadline is set?
+
         host = msg.sender;
+        participant[host] = true;
         i_WBTC = IERC20(_WBTC);
         whitelisted[_WBTC] = true;
         i_WETH = IERC20(_WETH);
@@ -199,7 +202,7 @@ contract ChristmasDinner {
         if(deadlineSet) {
             revert DeadlineAlreadySet();
         } else {
-            deadline = block.timestamp + _days * 1 days;
+            deadline = block.timestamp + _days * 1 days; //brackets for clarity?
             //@audit we never set the deadline to true Host can change the deadline if they want to though, is this intended?
             emit DeadlineSet(deadline);
         }
@@ -224,6 +227,7 @@ contract ChristmasDinner {
      */
     
     //@audit we don't update the user's participation status
+    //@audit we can still recieve eth after a deadline
     receive() external payable {
         etherBalance[msg.sender] += msg.value;
         emit NewSignup(msg.sender, msg.value, true);

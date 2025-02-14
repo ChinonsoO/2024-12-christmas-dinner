@@ -39,15 +39,16 @@ contract InvariantTest is StdInvariant, Test {
 
         _makeParticipants();
 
-        handler = new Handler(wbtc, weth, usdc, cd, user1, user2, user3);
+        handler = new Handler(wbtc, weth, usdc, cd, user1, user2, user3, deployer);
 
-        bytes4[] memory selectors = new bytes4[](5);
+        bytes4[] memory selectors = new bytes4[](6);
 
         selectors[0] = handler.depositWeth.selector;
         selectors[1] = handler.depositWbtc.selector;
         selectors[2] = handler.depositUsdc.selector;
         selectors[3] = handler.depositEth.selector;
         selectors[4] = handler.refundBalance.selector;
+        selectors[5] = handler.warpPastDeadline.selector;
 
         targetContract(address(handler));
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
@@ -56,13 +57,15 @@ contract InvariantTest is StdInvariant, Test {
 
 
     function statefulFuzz_UserRefundsExactlyHowMuchTheyDeposited() public {
-        vm.startPrank(user1);
-        cd.refund();
-        vm.stopPrank();
+        if (block.timestamp < cd.deadline()){
+            vm.startPrank(user1);
+            cd.refund();
+            vm.stopPrank();
 
-        assert(wethStartingAmount[user1] == weth.balanceOf(user1));
-        assert(wbtcStartingAmount[user1] == wbtc.balanceOf(user1));
-        assert(usdcStartingAmount[user1] == usdc.balanceOf(user1));
+            assertTrue(wethStartingAmount[user1] == weth.balanceOf(user1), "WETH refund balance not equal after refund");
+            assertTrue(wbtcStartingAmount[user1] == wbtc.balanceOf(user1), "wbtc refund balance not equal after refund");
+            assertTrue(usdcStartingAmount[user1] == usdc.balanceOf(user1), "usdc refund balance not equal after refund");
+        }
     }
 
     function statefulFuzz_UserWhoDepositsIsMarkedAsParticipant() public {
@@ -72,58 +75,54 @@ contract InvariantTest is StdInvariant, Test {
             cd.getUserBalance(user1, address(wbtc)) > 0 ||
             cd.etherBalance(user1) > 0
             ) {
-                assertTrue(cd.getParticipationStatus(user1));
+                assertTrue(cd.getParticipationStatus(user1), "User Who Deposits is not marked as participant");
             }
         // vm.stopPrank();
 
     }   
 
-     function statefulFuzz_OnlyAllowSignupsBeforeDeadline() public {
-        // vm.startPrank(user1);
-        if (cd.getUserBalance(user1, address(weth)) > 0 ||
-            cd.getUserBalance(user1, address(usdc)) > 0 ||
-            cd.getUserBalance(user1, address(wbtc)) > 0 ||
-            cd.etherBalance(user1) > 0
-            ) {
-                assertTrue(cd.getParticipationStatus(user1));
-            }
-        // vm.stopPrank();
+    function statefulFuzz_NoNewSignupsOrRefundsAfterDeadline() public {
+        // Only check when the current time is past the deadline.
+        if (block.timestamp > cd.deadline()) {
+            vm.startPrank(user1);
 
+            // Attempt deposit with WBTC.
+            (bool depositSuccess, ) = address(cd).call(
+                abi.encodeWithSelector(cd.deposit.selector, address(wbtc), 1)
+            );
+            assertTrue(!depositSuccess, "Deposit with WBTC allowed after deadline");
+
+            // Attempt deposit with WETH.
+            (depositSuccess, ) = address(cd).call(
+                abi.encodeWithSelector(cd.deposit.selector, address(weth), 1)
+            );
+            assertTrue(!depositSuccess, "Deposit with WETH allowed after deadline");
+
+            // Attempt deposit with USDC.
+            (depositSuccess, ) = address(cd).call(
+                abi.encodeWithSelector(cd.deposit.selector, address(usdc), 1)
+            );
+            assertTrue(!depositSuccess, "Deposit with USDC allowed after deadline");
+
+            (depositSuccess, ) = address(cd).call{value: 1e18}("");
+
+            assertTrue(!depositSuccess, "Deposit with ETH allowed after deadline");
+
+            // Attempt a refund.
+            (bool refundSuccess, ) = address(cd).call(
+                abi.encodeWithSelector(cd.refund.selector)
+            );
+            assertTrue(!refundSuccess, "Refund allowed after deadline");
+
+            vm.stopPrank();
+        }
     }
 
-    function invariant_NoNewSignupsOrRefundsAfterDeadline() public {
-    // Only check when the current time is past the deadline.
-    if (block.timestamp > cd.deadline()) {
-        // Have user1 try to make a deposit for each supported token.
-        vm.startPrank(user1);
+    function invariant_HostAlwaysParticipant() public {
+        // Assert that the current host is always marked as a participant.
+        assertTrue(cd.getParticipationStatus(cd.getHost()), "Invariant failed: host is not a participant");
 
-        // Attempt deposit with WBTC.
-        (bool depositSuccess, ) = address(cd).call(
-            abi.encodeWithSelector(cd.deposit.selector, address(wbtc), 1)
-        );
-        assertTrue(!depositSuccess, "Deposit with WBTC allowed after deadline");
-
-        // Attempt deposit with WETH.
-        (depositSuccess, ) = address(cd).call(
-            abi.encodeWithSelector(cd.deposit.selector, address(weth), 1)
-        );
-        assertTrue(!depositSuccess, "Deposit with WETH allowed after deadline");
-
-        // Attempt deposit with USDC.
-        (depositSuccess, ) = address(cd).call(
-            abi.encodeWithSelector(cd.deposit.selector, address(usdc), 1)
-        );
-        assertTrue(!depositSuccess, "Deposit with USDC allowed after deadline");
-
-        // Attempt a refund.
-        (bool refundSuccess, ) = address(cd).call(
-            abi.encodeWithSelector(cd.refund.selector)
-        );
-        assertTrue(!refundSuccess, "Refund allowed after deadline");
-
-        vm.stopPrank();
     }
-}  
 
 
     function _makeParticipants() internal {
@@ -179,5 +178,5 @@ contract InvariantTest is StdInvariant, Test {
         vm.stopPrank();
     }
 
-   
+  
 }
